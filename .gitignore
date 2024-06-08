@@ -1,0 +1,5 @@
+result.csv
+license_plates.db
+*.pt
+*.mp4
+__pycache__/
