@@ -1,4 +1,4 @@
-# Access-parking-system-with-neural-networks
+# Access-parking-system-with-YOLOv8
 Goals:
 
 1. Process an overview of artificial intelligence methods for object detection from camera sensors.
