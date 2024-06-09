@@ -6,10 +6,10 @@ results = {}
 
 # Load the YOLOv8 model
 coco_model = YOLO('models/yolov8n.pt')
-license_plate_detector = YOLO('./models/30-epochs-gpu-trained-lpr-model.pt')
+license_plate_detector = YOLO('./models/200-epochs-gpu-trained-lpr-model.pt')
 
 # Open the video file
-video_path = "./assets/videos/audiA5-front-4k60fps.mp4"
+video_path = "./assets/videos/4k60fps-converted.mp4"
 cap = cv2.VideoCapture(video_path)
 
 # car, motorcycle, bus, truck
@@ -17,8 +17,8 @@ vehicles_to_track = [2, 3, 5, 7]
 
 # read frames
 frame_nmr = -1
-# ret = True
-while cap.isOpened():
+rec = True
+while rec:
     frame_nmr += 1
     success, frame = cap.read()
     if success:
