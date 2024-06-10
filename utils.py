@@ -7,6 +7,7 @@ import json
 import uuid
 import requests
 from datetime import datetime
+from skimage.metrics import structural_similarity as ssim
 
 # Initialize the OCR reader
 reader = easyocr.Reader(['en'], gpu=True)
@@ -86,27 +87,6 @@ def format_license(text):
     return license_plate
 
 
-def read_license_plate(license_plate_crop):
-    custom_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    detections = reader.readtext(license_plate_crop, allowlist=custom_characters)
-
-    all_texts = []
-    all_scores = []
-
-    for _, text, score in detections:
-        text = text.upper().replace(' ', '')
-        all_texts.append(text)
-        all_scores.append(score)
-
-    license_plate_text = ''.join(all_texts)
-    license_plate_score = sum(all_scores) / len(all_scores) if all_scores else 0
-
-    if license_complies_format(license_plate_text):
-        return format_license(license_plate_text), license_plate_score
-
-    return None, None
-
-
 def get_car(license_plate, vehicles):
     x1, y1, x2, y2, score, class_id = license_plate
 
@@ -119,6 +99,19 @@ def get_car(license_plate, vehicles):
     return -1, -1, -1, -1, -1, -1
 
 
+def process_license_plate(license_plate_crop):
+    # removes noisy colors from license plate
+    adjusted_license_plate_crop = adjust_license_plate(license_plate_crop)
+    # cv2.imshow("adjusted", adjusted_license_plate_crop)
+
+    # process license plate
+    license_plate_crop_gray = cv2.cvtColor(adjusted_license_plate_crop, cv2.COLOR_BGR2GRAY)
+    # cv2.imshow("gray", license_plate_crop_gray)
+
+    license_plate_text, license_plate_text_score = get_license_plate_text(license_plate_crop_gray)
+    return license_plate_text, license_plate_text_score
+
+
 def adjust_license_plate(license_plate_crop):
     # Convert BGR to HSV
     hsv = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2HSV)
@@ -128,6 +121,8 @@ def adjust_license_plate(license_plate_crop):
     upper_blue = np.array([130, 255, 255])
     lower_dark_blue = np.array([100, 150, 0])
     upper_dark_blue = np.array([140, 255, 100])
+    lower_light_blue = np.array([90, 50, 50])
+    upper_light_blue = np.array([110, 255, 255])
 
     # Define range of red color in HSV
     lower_red1 = np.array([0, 50, 50])
@@ -140,11 +135,13 @@ def adjust_license_plate(license_plate_crop):
     # Threshold the HSV image to get only blue and red colors
     mask_blue1 = cv2.inRange(hsv, lower_blue, upper_blue)
     mask_blue2 = cv2.inRange(hsv, lower_dark_blue, upper_dark_blue)
+    mask_light_blue = cv2.inRange(hsv, lower_light_blue, upper_light_blue)
     mask_red1 = cv2.inRange(hsv, lower_red1, upper_red1)
     mask_red2 = cv2.inRange(hsv, lower_red2, upper_red2)
     mask_dark_red = cv2.inRange(hsv, lower_dark_red, upper_dark_red)
 
     mask_blue = cv2.bitwise_or(mask_blue1, mask_blue2)
+    mask_blue = cv2.bitwise_or(mask_blue, mask_light_blue)
     mask_red = cv2.bitwise_or(mask_red1, mask_red2)
     mask_red = cv2.bitwise_or(mask_red, mask_dark_red)
 
@@ -163,50 +160,130 @@ def adjust_license_plate(license_plate_crop):
     return res_white
 
 
-def adjust_license_plate_2(license_plate_crop):
-    # Convert BGR to HSV
-    hsv = cv2.cvtColor(license_plate_crop, cv2.COLOR_BGR2HSV)
+def get_license_plate_text(license_plate_crop_gray):
+    license_plate_thresholds = []
 
-    # Define range of black color in HSV
-    lower_black = np.array([0, 0, 0])
-    upper_black = np.array([180, 255, 50])  # Adjust upper value for different shades of black
+    _, license_plate_crop_thresh_20 = cv2.threshold(license_plate_crop_gray, 20, 255, cv2.THRESH_BINARY_INV)
+    _, license_plate_crop_thresh_40 = cv2.threshold(license_plate_crop_gray, 40, 255, cv2.THRESH_BINARY_INV)
+    _, license_plate_crop_thresh_60 = cv2.threshold(license_plate_crop_gray, 60, 255, cv2.THRESH_BINARY_INV)
+    _, license_plate_crop_thresh_80 = cv2.threshold(license_plate_crop_gray, 80, 255, cv2.THRESH_BINARY_INV)
+    _, license_plate_crop_thresh_100 = cv2.threshold(license_plate_crop_gray, 100, 255, cv2.THRESH_BINARY_INV)
+    _, license_plate_crop_thresh_120 = cv2.threshold(license_plate_crop_gray, 120, 255, cv2.THRESH_BINARY_INV)
+    _, license_plate_crop_thresh_140 = cv2.threshold(license_plate_crop_gray, 140, 255, cv2.THRESH_BINARY_INV)
+    _, license_plate_crop_thresh_160 = cv2.threshold(license_plate_crop_gray, 160, 255, cv2.THRESH_BINARY_INV)
 
-    # Threshold the HSV image to get only black colors
-    mask_black = cv2.inRange(hsv, lower_black, upper_black)
+    license_plate_thresholds.append(license_plate_crop_thresh_20)
+    license_plate_thresholds.append(license_plate_crop_thresh_40)
+    license_plate_thresholds.append(license_plate_crop_thresh_60)
+    license_plate_thresholds.append(license_plate_crop_thresh_80)
+    license_plate_thresholds.append(license_plate_crop_thresh_100)
+    license_plate_thresholds.append(license_plate_crop_thresh_120)
+    license_plate_thresholds.append(license_plate_crop_thresh_140)
+    license_plate_thresholds.append(license_plate_crop_thresh_160)
 
-    # Invert the mask to get everything except black
-    mask_inv = cv2.bitwise_not(mask_black)
+    license_plate_texts = []
+    license_plate_scores = []
 
-    # Create a white image of the same size as the frame
-    white_background = np.full(license_plate_crop.shape, 255, dtype=np.uint8)
+    for lp_threshold in license_plate_thresholds:
+        text, score = read_license_plate(lp_threshold)
+        if text and score:
+            license_plate_texts.append(text)
+            license_plate_scores.append(score)
 
-    # Use the inverted mask to replace the non-black areas with white
-    res = cv2.bitwise_and(license_plate_crop, license_plate_crop, mask=mask_black)
-    res_white = cv2.bitwise_or(res, cv2.bitwise_and(white_background, white_background, mask=mask_inv))
+    if license_plate_scores:
+        max_score = max(license_plate_scores)
+        # if max_score >= 0.9:
+        idx = license_plate_scores.index(max_score)
+        license_plate_text_score = license_plate_scores[idx]
+        license_plate_text = license_plate_texts[idx]
+        return license_plate_text, license_plate_text_score
 
-    return res_white
+    return None, None
 
 
-def get_license_plate_details(license_plate_crop_gray):
-    _, license_plate_crop_lower_thresh = cv2.threshold(license_plate_crop_gray, 40, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_higher_thresh = cv2.threshold(license_plate_crop_gray, 138, 255, cv2.THRESH_BINARY_INV)
-    cv2.imshow("low_thresh", license_plate_crop_lower_thresh)
-    cv2.imshow("higher_thresh", license_plate_crop_higher_thresh)
+def read_license_plate(license_plate_crop):
+    custom_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    detections = reader.readtext(license_plate_crop, width_ths=0.9, allowlist=custom_characters)
 
-    # read license plate number
-    license_plate_text_lt, license_plate_text_score_lt = read_license_plate(license_plate_crop_lower_thresh)
-    license_plate_text_ht, license_plate_text_score_ht = read_license_plate(license_plate_crop_higher_thresh)
+    # cv2.imshow('lp', license_plate_crop)
+    region_threshold = 0.3
+    license_plate_text, license_plate_score = filter_text(license_plate_crop, detections, region_threshold)
 
-    # returns license plate text based on higher score
-    if license_plate_text_score_ht and license_plate_text_score_lt:
-        (license_plate_text, license_plate_text_score) = (
-            license_plate_text_ht, license_plate_text_score_ht) if str(license_plate_text_score_ht) > str(
-            license_plate_text_score_lt) else (license_plate_text_lt, license_plate_text_score_lt)
-    elif license_plate_text_score_ht:
-        license_plate_text, license_plate_text_score = license_plate_text_ht, license_plate_text_score_ht
-    else:
-        license_plate_text, license_plate_text_score = license_plate_text_lt, license_plate_text_score_lt
-    return license_plate_text, license_plate_text_score
+    if license_plate_text and license_plate_score and license_complies_format(license_plate_text):
+            return format_license(license_plate_text), license_plate_score
+            # return license_plate_text, license_plate_score
+
+    return None, None
+
+
+def filter_text(license_plate_crop, ocr_result, region_threshold):
+    rectangle_size = license_plate_crop.shape[0] * license_plate_crop.shape[1]
+
+    for result in ocr_result:
+        width = np.sum(np.subtract(result[0][1], result[0][0]))
+        height = np.sum(np.subtract(result[0][2], result[0][1]))
+        # print(length, height)
+        if width * height / rectangle_size > region_threshold:
+            plate = result[1].replace(" ", "")
+            score = result[2]
+            return plate, score
+    return None, None
+
+
+def display_license_plate_text(frame, license_plate, license_plate_text):
+    x1, y1, x2, y2, _, _ = license_plate
+
+    # Calculate the width of the license plate
+    plate_width = x2 - x1
+
+    # Define the initial font and scale
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 1
+    font_thickness = 4
+
+    # Calculate the text size with the initial font scale
+    text_size, _ = cv2.getTextSize(license_plate_text, font, font_scale, font_thickness)
+
+    # Adjust the font scale so that the text width matches the plate width
+    font_scale = plate_width / text_size[0]
+
+    # Recalculate the text size with the adjusted font scale
+    text_size, _ = cv2.getTextSize(license_plate_text, font, font_scale, font_thickness)
+
+    # Calculate text position (above the cropped image)
+    text_x = int(x1)
+    text_y = int(y1) - 10  # 10 pixels above the license plate
+
+    # Define padding around the text
+    padding = 10
+
+    # Calculate the rectangle coordinates for the text background with padding
+    rect_top_left = (text_x - padding, text_y - text_size[1] - padding)
+    rect_bottom_right = (text_x + text_size[0] + padding, text_y + padding)
+
+    # Check if text and background fits within the frame
+    if rect_bottom_right[0] <= frame.shape[1] and rect_top_left[1] >= 0:
+        # Draw the white background rectangle with padding
+        cv2.rectangle(frame, rect_top_left, rect_bottom_right, (255, 255, 255), thickness=cv2.FILLED)
+
+        # Draw the text on the white background
+        cv2.putText(frame, license_plate_text, (text_x, text_y), font, font_scale, (0, 255, 0), font_thickness)
+
+
+def resize_images_to_same_dimensions(image1, image2):
+    img1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
+    img2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
+
+    # Resize img2 to match img1 dimensions
+    img2_resized = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
+    return img1, img2_resized
+
+
+# Function to compute SSIM between two images
+def compare_images_ssim(image1, image2):
+    img1, img2 = resize_images_to_same_dimensions(image1, image2)
+    score, diff = ssim(img1, img2, full=True)
+    return score
 
 
 def prepare_json_data(license_plate_text, license_plate_crop):

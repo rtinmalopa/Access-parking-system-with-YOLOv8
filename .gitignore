@@ -1,5 +1,7 @@
 result.csv
 license_plates.db
-yolov8n.pt
+*.pt
 *.mp4
 __pycache__/
+*.jpg
+*.png
