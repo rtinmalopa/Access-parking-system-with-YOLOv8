@@ -10,7 +10,7 @@ from datetime import datetime
 from skimage.metrics import structural_similarity as ssim
 
 # Initialize the OCR reader
-reader = easyocr.Reader(['en'], gpu=True)
+reader = easyocr.Reader(['en', 'sk'])
 
 # Mapping dictionaries for character conversion
 map_char_to_int = {'O': '0', 'I': '1', 'J': '3', 'A': '4', 'G': '6', 'S': '5', 'B': '8'}
@@ -100,16 +100,34 @@ def get_car(license_plate, vehicles):
 
 
 def process_license_plate(license_plate_crop):
-    # removes noisy colors from license plate
-    adjusted_license_plate_crop = adjust_license_plate(license_plate_crop)
-    # cv2.imshow("adjusted", adjusted_license_plate_crop)
+    resized_image = resize_image(license_plate_crop, 300, 100)
+    # cv2.imshow("resized_image", resized_image)
 
-    # process license plate
-    license_plate_crop_gray = cv2.cvtColor(adjusted_license_plate_crop, cv2.COLOR_BGR2GRAY)
-    # cv2.imshow("gray", license_plate_crop_gray)
+    adjusted = adjust_license_plate(resized_image)
+    # cv2.imshow("adjusted", adjusted)
 
-    license_plate_text, license_plate_text_score = get_license_plate_text(license_plate_crop_gray)
+    gray = cv2.cvtColor(adjusted, cv2.COLOR_BGR2GRAY)
+
+    alpha = 2.0
+    beta = 0
+    contrasted = cv2.convertScaleAbs(gray, alpha=alpha, beta=beta)
+    cv2.imshow("contrasted", contrasted)
+    cv2.waitKey(1)
+
+    license_plate_text, license_plate_text_score = read_license_plate(contrasted)
     return license_plate_text, license_plate_text_score
+
+
+def resize_image(image, target_width, target_height):
+    h, w = image.shape[:2]
+    if w > h:
+        new_w = target_width
+        new_h = int((h / w) * target_width)
+    else:
+        new_h = target_height
+        new_w = int((w / h) * target_height)
+    resized_image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    return resized_image
 
 
 def adjust_license_plate(license_plate_crop):
@@ -160,58 +178,18 @@ def adjust_license_plate(license_plate_crop):
     return res_white
 
 
-def get_license_plate_text(license_plate_crop_gray):
-    license_plate_thresholds = []
-
-    _, license_plate_crop_thresh_20 = cv2.threshold(license_plate_crop_gray, 20, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_thresh_40 = cv2.threshold(license_plate_crop_gray, 40, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_thresh_60 = cv2.threshold(license_plate_crop_gray, 60, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_thresh_80 = cv2.threshold(license_plate_crop_gray, 80, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_thresh_100 = cv2.threshold(license_plate_crop_gray, 100, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_thresh_120 = cv2.threshold(license_plate_crop_gray, 120, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_thresh_140 = cv2.threshold(license_plate_crop_gray, 140, 255, cv2.THRESH_BINARY_INV)
-    _, license_plate_crop_thresh_160 = cv2.threshold(license_plate_crop_gray, 160, 255, cv2.THRESH_BINARY_INV)
-
-    license_plate_thresholds.append(license_plate_crop_thresh_20)
-    license_plate_thresholds.append(license_plate_crop_thresh_40)
-    license_plate_thresholds.append(license_plate_crop_thresh_60)
-    license_plate_thresholds.append(license_plate_crop_thresh_80)
-    license_plate_thresholds.append(license_plate_crop_thresh_100)
-    license_plate_thresholds.append(license_plate_crop_thresh_120)
-    license_plate_thresholds.append(license_plate_crop_thresh_140)
-    license_plate_thresholds.append(license_plate_crop_thresh_160)
-
-    license_plate_texts = []
-    license_plate_scores = []
-
-    for lp_threshold in license_plate_thresholds:
-        text, score = read_license_plate(lp_threshold)
-        if text and score:
-            license_plate_texts.append(text)
-            license_plate_scores.append(score)
-
-    if license_plate_scores:
-        max_score = max(license_plate_scores)
-        # if max_score >= 0.9:
-        idx = license_plate_scores.index(max_score)
-        license_plate_text_score = license_plate_scores[idx]
-        license_plate_text = license_plate_texts[idx]
-        return license_plate_text, license_plate_text_score
-
-    return None, None
-
-
 def read_license_plate(license_plate_crop):
-    custom_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    detections = reader.readtext(license_plate_crop, width_ths=0.9, allowlist=custom_characters)
+    custom_characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
+    detections = reader.readtext(license_plate_crop, allowlist=custom_characters, width_ths=0.9, min_size=10, text_threshold=0.7, low_text=0.5, link_threshold=0.7)
 
     # cv2.imshow('lp', license_plate_crop)
     region_threshold = 0.3
     license_plate_text, license_plate_score = filter_text(license_plate_crop, detections, region_threshold)
 
-    if license_plate_text and license_plate_score and license_complies_format(license_plate_text):
-            return format_license(license_plate_text), license_plate_score
-            # return license_plate_text, license_plate_score
+    if license_plate_text and license_plate_score:
+        return license_plate_text, license_plate_score
+        # license_complies_format(license_plate_text):
+        #     return format_license(license_plate_text), license_plate_score
 
     return None, None
 

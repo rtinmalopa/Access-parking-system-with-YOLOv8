@@ -4,10 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0bc190cc-ad28-48b4-b2bf-201b48d8f20a" name="Changes" comment="new model added">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="0bc190cc-ad28-48b4-b2bf-201b48d8f20a" name="Changes" comment="final changes, db images and matching from car crop">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/db.py" beforeDir="false" afterPath="$PROJECT_DIR$/db.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/easyOCR.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
     </list>
@@ -79,7 +79,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main",
     "last_opened_file_path": "C:/Users/rtinm/PycharmProjects/Access-parking-system-with-YOLOv8/models",
-    "settings.editor.selected.configurable": "org.jetbrains.plugins.gitlab.GitLabSettingsConfigurable"
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
 }]]></component>
   <component name="RecentsManager">
@@ -182,8 +182,8 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.db" />
         <item itemvalue="Python.easyOCR" />
+        <item itemvalue="Python.db" />
         <item itemvalue="Python.utils" />
       </list>
     </recent_temporary>
@@ -228,7 +228,15 @@
       <option name="project" value="LOCAL" />
       <updated>1717950621135</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="final changes, db images and matching from car crop">
+      <option name="closed" value="true" />
+      <created>1718056591014</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1718056591014</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -258,7 +266,8 @@
     <MESSAGE value="initial commit" />
     <MESSAGE value=".gitignore added" />
     <MESSAGE value="new model added" />
-    <option name="LAST_COMMIT_MESSAGE" value="new model added" />
+    <MESSAGE value="final changes, db images and matching from car crop" />
+    <option name="LAST_COMMIT_MESSAGE" value="final changes, db images and matching from car crop" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

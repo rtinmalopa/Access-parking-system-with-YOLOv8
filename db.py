@@ -8,6 +8,7 @@ def db_contains(license_plate_text, car_image):
     conn = sqlite3.connect('license_plates.db')
     c = conn.cursor()
 
+    license_plate_text = license_plate_text.replace("-", "")
     c.execute("SELECT license_plate, car_image FROM vehicles WHERE license_plate = ?", (license_plate_text,))
     result = c.fetchone()
 
