@@ -1,5 +1,7 @@
+import cv2
 from ultralytics import YOLO
-from utils import *
+
+from utils import get_car, process_license_plate, display_license_plate_text, prepare_json_data, write_csv
 from db import db_contains
 
 results = {}
@@ -10,7 +12,15 @@ license_plate_detector = YOLO('./models/200-epochs-gpu-trained-lpr-model.pt')
 
 # Open the video file
 video_path = "./assets/videos/vwPassat-front-4k60fps.mp4"
+# url = 'rtsp://admin:admin@192.168.0.10/media/video1'
 cap = cv2.VideoCapture(video_path)
+# cap.set(cv2.CAP_PROP_BUFFERSIZE, 4096)
+
+# Set the desired resolution
+
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
+# cap.set(cv2.CAP_PROP_EXPOSURE, -8.0)
 
 # car, motorcycle, bus, truck
 vehicles_to_track = [2, 3, 5, 7]
@@ -66,8 +76,8 @@ while rec:
                                                                     'bbox_score': score,
                                                                     'text_score': license_plate_text_score}}
 
-        cv2.namedWindow("Webcam", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Webcam", 1280, 720)
+        # cv2.namedWindow("Webcam", cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow("Webcam", 1280, 720)
         cv2.imshow('Webcam', frame)
         if cv2.waitKey(1) == ord('q'):
             break

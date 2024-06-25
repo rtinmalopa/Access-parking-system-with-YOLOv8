@@ -112,7 +112,6 @@ def process_license_plate(license_plate_crop):
     beta = 0
     contrasted = cv2.convertScaleAbs(gray, alpha=alpha, beta=beta)
     cv2.imshow("contrasted", contrasted)
-    cv2.waitKey(1)
 
     license_plate_text, license_plate_text_score = read_license_plate(contrasted)
     return license_plate_text, license_plate_text_score
